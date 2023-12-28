@@ -14,11 +14,13 @@ import plotly.graph_objects as go
 
 headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'}
 df_bgm = pd.DataFrame()
-# st.set_page_config(layout="wide")
+sheet_id ="1--_yA87vC8YgxiwgQ_dR_SbWlIDUl9yf"
+trickers_eps = pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
 
+# find the positive eps
+positive_df = trickers_eps[(trickers_eps['EPS'] > 0) & (trickers_eps['Growth'] > 0)]
+tickers = positive_df["Ticker"].to_list()
 st.title('Benjamin Graham model (BGM)')
-
-
 
 @st.cache_data
 def load_yield():
@@ -47,8 +49,9 @@ with col2:
     code_Average_Yield_AAA = f"AAA級公司債券的平均收益率: {Average_Yield_AAA}"
     st.code(code_Average_Yield_AAA, language='python')
 
+# stock_code = "AAPL"
+stock_code = st.selectbox('Select a ticker:', tickers)
 
-stock_code = st.text_input("輸入股票代號" , value="AAPL")
 
 @st.cache_data  # 使用新的缓存装饰器
 def load_stock_data(stock_code):
@@ -79,6 +82,8 @@ Grown = stock_data[0]
 eps = stock_data[1]
 price = stock_data[2]
 stock_price= stock_data[3]
+company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
+st.code(f"公司: {company_name}")
 
 col1, col2, col3= st.columns([1,0.8,1.3])
 with col1:
