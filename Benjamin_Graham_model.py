@@ -49,41 +49,36 @@ with col2:
     code_Average_Yield_AAA = f"AAA級公司債券的平均收益率: {Average_Yield_AAA}"
     st.code(code_Average_Yield_AAA, language='python')
 
-# stock_code = "AAPL"
-stock_code = st.selectbox('Select a ticker:', tickers)
+# Assuming 'tickers' is your list of ticker symbols
+tickers = sorted(tickers)
+stock_code = st.selectbox(f'選擇股票: ({len(tickers)})', tickers)
 
 
 @st.cache_data  # 使用新的缓存装饰器
 def load_stock_data(stock_code):
-    # 获取增长率
-    response = requests.get(f"https://finance.yahoo.com/quote/{stock_code}/analysis?p={stock_code}", headers=headers)
-    soup = BeautifulSoup(response.text,"html.parser")
-    if len(soup.find_all(class_="Ta(end) Py(10px)")) < 16:
-        Grown = 0
-    else:
-        Grown_str = soup.find_all(class_="Ta(end) Py(10px)")[16].text
-        Grown = float(Grown_str.replace("%", "")) if Grown_str != 'N/A' else 0
 
-    # 获取每股收益（EPS）
-    response = requests.get(f"https://finance.yahoo.com/quote/{stock_code}?p={stock_code}&.tsrc=fin-srch", headers=headers)
-    soup = BeautifulSoup(response.text,"html.parser")
-    eps_str = soup.find_all(class_="Ta(end) Fw(600) Lh(14px)")[11].text
-    eps = float(eps_str) if eps_str != 'N/A' else 0
-    
     # 获取价格
     stock_price = yf.download(stock_code, period="3y")
     price = round(stock_price["Close"][-1], 2)        
 
-    return Grown, eps, price, stock_price
+    return price, stock_price
+col1, col2= st.columns([1.5,1])
+with col1:
+    company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
+    st.text("公司:")
+    st.text(company_name)
+with col2:
+    grown_mult = st.number_input("增長倍數", value=2.0, step=0.1, format="%.1f")
 
 
 stock_data = load_stock_data(stock_code)
-Grown = stock_data[0]
-eps = stock_data[1]
-price = stock_data[2]
-stock_price= stock_data[3]
+Grown = positive_df["Growth"][positive_df["Ticker"] == stock_code].values[0]
+eps = positive_df["EPS"][positive_df["Ticker"] == stock_code].values[0]
+price = stock_data[0]
+stock_price= stock_data[1]
 company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
-st.code(f"公司: {company_name}")
+# st.code(f"公司: {company_name}")
+# grown_mult = st.number_input("增長倍數", value=2.0, step=0.1, format="%.2f")
 
 col1, col2, col3= st.columns([1,0.8,1.3])
 with col1:
@@ -98,8 +93,8 @@ with col3:
     print_grown = f"後五年增長(每年): {Grown}"
     st.code(print_grown, language='python')
     
-BGM_value = round((eps * (8.5 + 2 *Grown)* Average_Yield_AAA)/AAA_Effective_Yield,2)    
-st.code(f"BGM 數值: {BGM_value}", language='python')
+BGM_value = round((eps * (8.5 + grown_mult *Grown)* Average_Yield_AAA)/AAA_Effective_Yield,2)    
+st.code(f"BGM 數值*: {BGM_value}", language='python')
 Margin_of_safty = st.slider("安全網", min_value=0.5, max_value=1.0, value=0.8, step=0.05)
 New_BGM = round(BGM_value *Margin_of_safty,2)
 st.code(f"BGM 數值 (安全網): {New_BGM}", language='python')
@@ -114,4 +109,6 @@ fig.add_trace(go.Candlestick(x=stock_price["Date"], open=stock_price["Open"], hi
 fig.add_hline(y=BGM_value, line_dash="dot" , annotation_text=f"BGM Value: {BGM_value}")
 fig.add_hline(y=New_BGM , annotation_text=f"Margin_of_safty: {New_BGM}")
 st.plotly_chart(fig)
-       
+st.markdown('<p style="font-size: 10px;">數據來源自Yahoo Finance</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 10px;">BGM = 每股盈利 *(8.5 +增長倍數 *後五年增長(每年))* AAA級公司債券的平均收益率/AAA級公司債券的有效收益率</p>', unsafe_allow_html=True)
+
