@@ -9,18 +9,10 @@ import pandas as pd
 from bs4 import BeautifulSoup
 import requests
 import streamlit as st 
-import yfinance as yf
 import plotly.graph_objects as go
 
-headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'}
-df_bgm = pd.DataFrame()
-sheet_id ="1--_yA87vC8YgxiwgQ_dR_SbWlIDUl9yf"
-trickers_eps = pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
+fmp_api_key = "e3e1ef68f4575bca8a430996a4e11ed1"
 
-# find the positive eps
-positive_df = trickers_eps[(trickers_eps['EPS'] > 0) & (trickers_eps['Growth'] > 0)]
-tickers = positive_df["Ticker"].to_list()
-st.title('Benjamin Graham model (BGM)')
 
 @st.cache_data
 def load_yield():
@@ -35,6 +27,19 @@ def load_yield():
     AAA_Effective_Yield = float(soup.find_all("td",{"class":"col-6"})[5].text.replace("%", ""))
     
     return(Average_Yield_AAA, AAA_Effective_Yield)
+
+
+
+headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36'}
+df_bgm = pd.DataFrame()
+sheet_id ="1--_yA87vC8YgxiwgQ_dR_SbWlIDUl9yf"
+trickers_eps = pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
+
+# find the positive eps
+positive_df = trickers_eps[(trickers_eps['EPS'] > 0) & (trickers_eps['Growth'] > 0)]
+tickers = positive_df["Ticker"].to_list()
+st.title('Benjamin Graham model (BGM)')
+
 
 # 使用函数获取数据
 Average_Yield_AAA, AAA_Effective_Yield = load_yield()
@@ -68,7 +73,7 @@ with col1:
     st.text("公司:")
     st.text(company_name)
 with col2:
-    grown_mult = st.number_input("增長倍數", value=2.0, step=0.1, format="%.1f")
+    grown_mult = st.number_input("增長倍數", value=1.0, step=0.1, format="%.1f")
 
 
 stock_data = load_stock_data(stock_code)
@@ -77,23 +82,21 @@ eps = positive_df["EPS"][positive_df["Ticker"] == stock_code].values[0]
 price = stock_data[0]
 stock_price= stock_data[1]
 company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
-# st.code(f"公司: {company_name}")
-# grown_mult = st.number_input("增長倍數", value=2.0, step=0.1, format="%.2f")
 
-col1, col2, col3= st.columns([1,0.8,1.3])
+col1, col2, col3= st.columns([1,1,1])
 with col1:
     print_price = f"股價: {price}"
     st.code(print_price, language='python')
     
 with col2:
-    print_eps = f"每股盈利: {eps}"
+    print_eps = f"每股盈利 (五年平均): {eps.round(2)}"
     st.code(print_eps, language='python')
     
 with col3:
     print_grown = f"後五年增長(每年): {Grown}"
     st.code(print_grown, language='python')
     
-BGM_value = round((eps * (8.5 + grown_mult *Grown)* Average_Yield_AAA)/AAA_Effective_Yield,2)    
+BGM_value = round((eps * (7 + grown_mult *Grown)* Average_Yield_AAA)/AAA_Effective_Yield,2)    
 st.code(f"BGM 數值*: {BGM_value}", language='python')
 Margin_of_safty = st.slider("安全網", min_value=0.5, max_value=1.0, value=0.8, step=0.05)
 New_BGM = round(BGM_value *Margin_of_safty,2)
@@ -110,5 +113,5 @@ fig.add_hline(y=BGM_value, line_dash="dot" , annotation_text=f"BGM Value: {BGM_v
 fig.add_hline(y=New_BGM , annotation_text=f"Margin_of_safty: {New_BGM}")
 st.plotly_chart(fig)
 st.markdown('<p style="font-size: 10px;">數據來源自Yahoo Finance</p>', unsafe_allow_html=True)
-st.markdown('<p style="font-size: 10px;">BGM = 每股盈利 *(8.5 +增長倍數 *後五年增長(每年))* AAA級公司債券的平均收益率/AAA級公司債券的有效收益率</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 10px;">BGM = 每股盈利 *(7 +增長倍數 *後五年增長(每年))* AAA級公司債券的平均收益率/AAA級公司債券的有效收益率</p>', unsafe_allow_html=True)
 
