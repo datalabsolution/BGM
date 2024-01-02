@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 import requests
 import streamlit as st 
 import plotly.graph_objects as go
-
+import yfinance as yf
 fmp_api_key = "e3e1ef68f4575bca8a430996a4e11ed1"
 
 
