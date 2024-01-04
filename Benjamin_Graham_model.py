@@ -39,7 +39,7 @@ sheet_id ="1--_yA87vC8YgxiwgQ_dR_SbWlIDUl9yf"
 trickers_eps = pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
 
 # find the positive eps
-positive_df = trickers_eps[(trickers_eps['EPS'] > 0) & (trickers_eps['Growth'] > 0)]
+positive_df = trickers_eps[(trickers_eps['EPS_regression'] > 0) & (trickers_eps['Growth'] > 0)]
 tickers = positive_df["Ticker"].to_list()
 st.title('Benjamin Graham model (BGM)')
 
@@ -49,7 +49,7 @@ AAA_Effective_Yield = load_yield()
 
 # Display on web app
 code_Average_Yield_AAA = f"AAA級公司債券的有效收益率 (US Corporate AAA Effective Yield): {AAA_Effective_Yield}"
-st.code(code_Average_Yield_AAA, language='python')
+st.text(code_Average_Yield_AAA)
 
 # Assuming 'tickers' is your list of ticker symbols
 tickers = sorted(tickers)
@@ -57,6 +57,13 @@ stock_code = st.selectbox(f'選擇股票: ({len(tickers)})', tickers)
 
 
 stock_data = load_stock_data(stock_code)
+Grown = positive_df["Growth"][positive_df["Ticker"] == stock_code].values[0]
+eps = positive_df["EPS_regression"][positive_df["Ticker"] == stock_code].values[0]
+price = stock_data[0]
+stock_price= stock_data[1]
+company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
+
+
 col1, col2= st.columns([2,1])
 with col1:
     company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
@@ -66,30 +73,35 @@ with col2:
     
     price = stock_data[0]
     print_price = f"股價: {price}"
-    st.code(print_price)
+    st.text(print_price)
+
+st.sidebar.title("每股盈利 (EPS)")
+Calculate_method = st.sidebar.selectbox('計算方式', ['迴歸分析 (Regression)', '平均值 (Average)', '最新 (latest)'], index=0)
+
+if Calculate_method == "迴歸分析 (Regression)":
+    eps = positive_df["EPS_regression"][positive_df["Ticker"] == stock_code].values[0]
+    eps = st.sidebar.number_input("迴歸分析 (EPS - Regression)", value=eps, step=0.01, format="%.2f")
+elif Calculate_method == "平均值 (Average)":
+    eps = positive_df["EPS_average"][positive_df["Ticker"] == stock_code].values[0]
+    eps = st.sidebar.number_input("平均值 (Average)", value=eps, step=0.01, format="%.2f")
+elif Calculate_method == "最新 (latest)":
+    eps = positive_df["EPS_latest"][positive_df["Ticker"] == stock_code].values[0]
+    eps = st.sidebar.number_input("最新 (latest)", value=eps, step=0.01, format="%.2f")
+
+st.sidebar.text("_________________________________________________________")
+
+Grown = st.sidebar.number_input(f"後五年增長(Next 5 Years) - 每年", value=Grown, step=0.01, format="%.2f")
+grown_mult = st.sidebar.number_input("增長倍數 (Growth multiplier)", value=1.0, step=0.1, format="%.1f")    
+PE_zone = st.sidebar.number_input("零增長股票P/E (Zero-growth stock P/E )", value=7.0, step=0.1, format="%.1f")
     
 
 
-stock_data = load_stock_data(stock_code)
-Grown = positive_df["Growth"][positive_df["Ticker"] == stock_code].values[0]
-eps = positive_df["EPS"][positive_df["Ticker"] == stock_code].values[0]
-price = stock_data[0]
-stock_price= stock_data[1]
-company_name = positive_df["Company"][positive_df["Ticker"] == stock_code].values[0]
-
-col1, col2= st.columns([1,1])
-with col1:
-    eps = st.number_input("每股盈利 (EPS) - 五年平均", value=eps, step=0.01, format="%.2f")
-    Grown = st.number_input(f"後五年增長(Next 5 Years) - 每年", value=Grown, step=0.01, format="%.2f")
-with col2:
-    grown_mult = st.number_input("增長倍數 (Growth multiplier)", value=1.0, step=0.1, format="%.1f")    
-    PE_zone = st.number_input("零增長股票P/E (Zero-growth stock P/E )", value=7.0, step=0.1, format="%.1f")
-    
-
-markdown_text = f'<p style="font-size: 10px;">intrinsic value (BGM) = EPS x ({PE_zone} + {round(grown_mult,1)} x g) x 4.4/Y</p>'
-st.markdown(markdown_text, unsafe_allow_html=True)
 BGM_value = round((eps * (PE_zone + grown_mult *Grown)* 4.4)/AAA_Effective_Yield,2)    
 st.code(f"BGM 數值: {BGM_value}", language='python')
+markdown_text = f'<p style="font-size: 10px;">intrinsic value(BGM) = EPS x ({PE_zone} + {round(grown_mult,1)} x g) x 4.4/Y     ||     {BGM_value} = {round(eps,2)} x ({PE_zone} + {round(grown_mult,1)} x {round(Grown,2)}) x 4.4/{round(AAA_Effective_Yield,2)}</p>'
+st.markdown(markdown_text, unsafe_allow_html=True)
+# markdown_text_2 = f'<p style="font-size: 10px;">{BGM_value} = {round(eps,2)} x ({PE_zone} + {round(grown_mult,1)} x {round(Grown,2)}) x 4.4/{round(AAA_Effective_Yield,2)}</p>'
+# st.markdown(markdown_text_2, unsafe_allow_html=True)
 Margin_of_safty = st.slider("安全網 (Margin of safty)", min_value=0.5, max_value=1.0, value=0.8, step=0.05)
 New_BGM = round(BGM_value *Margin_of_safty,2)
 st.code(f"BGM 數值 (安全網): {New_BGM}", language='python')
@@ -97,8 +109,7 @@ st.code(f"BGM 數值 (安全網): {New_BGM}", language='python')
     
 stock_price["Date"] = stock_price.index
 stock_price.reset_index(inplace=True, drop=True)
-# stock_price
-# st.dataframe(stock_price)
+
 fig = go.Figure()
 fig.add_trace(go.Candlestick(x=stock_price["Date"], open=stock_price["Open"], high=stock_price["High"], low=stock_price["Low"], close=stock_price["Close"]) )
 fig.add_hline(y=BGM_value, line_dash="dot" , annotation_text=f"BGM Value: {BGM_value}")
